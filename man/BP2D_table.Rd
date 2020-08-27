@@ -16,7 +16,8 @@ Table and criterion T.
 If you give more groups of prior,you can use this function to get the table and T criterion.
 }
 \seealso{
-Other Bayesain estimate: \code{\link{BP2D_coef}},
-  \code{\link{BP2D}}
+Other Bayesain estimate: 
+\code{\link{BP2D_coef}()},
+\code{\link{BP2D}()}
 }
 \concept{Bayesain estimate}

@@ -4,7 +4,8 @@
 #'@references Li-Chu Chien,Yuh-Jenn Wu,Chao A. Hsiung,Lu-Hai Wang,I-Shou Chang(2015).Smoothed Lexis Diagrams With Applications to Lung and Breast Cancer Trends in Taiwan,Journal of the American Statistical Association, Taylor & Francis Journals, vol. 110(511), pages 1000-1012, September.
 #'@param prior prior=(n0,alpha,L) where alpha is a Poisson parameter,n0 is upper bound of alpha
 #'L can be every number which is bigger than one.
-#'@param input_data  It contain disease and population(ex: simulated_data_1).
+#'@param disease     Disease matrix.
+#'@param population  Population matrix.
 #'@param ages        Range of ages.
 #'@param years       Range of years.
 #'@param Iterations  Iterations of chain.
@@ -26,64 +27,59 @@
 #'
 #'@examples
 #'\donttest{
+#'# ---------------------------------------- #
 #'library(BayesBP)
-#'#simulated_data_1,simulated_data_2
-#'#Ages 1~85,years 1988~2007
-#'#Data are zero from 0 to 34
-#'#Given one prior and simulated_data_1
-#'data('simulated_data_1')
 #'ages<-35:85
 #'years<-1988:2007
 #'prior<-c(10,5,2)
-#'result<-BP2D(prior,simulated_data_1,ages,years,n_cluster=1)
-#'result$Fhat
-#'result$chain
-#'result$maxchain
-#'result$output
-#'result$store_coefficients$chain_1
-#'matplot(result$chain,type='l',main='Posterior mean trace plot')
-#'matplot(result$maxchain,type='l',main='Posterior max trace plot')
-#'BP2D_coef(result)
-#'write.BP(result,filename = 'result.xlsx')
-#'write.BP('result',filename = 'result.xlsx')
-#'
-#'#Given four prior and simulated_data_2
-#'data('simulated_data_2')
-#'n0<-c(10,20,10,20)
-#'alpha<-c(5,10,5,10)
-#'L<-c(2,2,4,4)
-#'prior<-cbind(n0,alpha,L)
+#'data(simulated_data_1)
+#'disease<-simulated_data_1$disease
+#'population<-simulated_data_1$population
+#'result<-BP2D(prior,ages,years,disease,population)
+#'# ---------------------------------------- #
+#'# Bernstein basis
+#'basis<-BPbasis(ages,years,10)
+#'pdbasis1<-PD_BPbasis(ages,years,10,by = 1)
+#'pdbasis2<-PD_BPbasis(ages,years,10,by = 2)
+#'# Bernstein polynomial
+#'coef<-result$store_coefficients$chain_1[[1]]
+#'BPFhat(coef,ages,years,basis)
+#'PD_BPFhat(coef,ages,years,pdbasis1,by = 1)
+#'PD_BPFhat(coef,ages,years,pdbasis2,by = 2)
+#'# Credible interval
+#'Credible_interval(result)
+#'PD_Credible_interval(result,by = 1)
+#'PD_Credible_interval(result,by = 2)
+#'# ---------------------------------------- #
+#'# Given four prior set
 #'ages<-35:85
 #'years<-1988:2007
-#'results_list<-paste0('result_',letters[1:4])
-#'for(i in 1:4){
-#'  assign(results_list[i],BP2D(prior[i,],simulated_data_2,ages,years,n_cluster=1))
+#'data(simulated_data_2)
+#'disease<-simulated_data_2$disease
+#'population<-simulated_data_2$population
+#'p<-expand.grid(n0=c(10,20),alpha=c(5,10),LL=c(2,4))
+#'prior_set<-p[p$n0==p$alpha*2,]
+#'result_list<-paste0('result',1:nrow(prior_set))
+#'for (i in seq_len(nrow(prior_set))) {
+#'    prior<-prior_set[i,]
+#'    assign(result_list[i],BP2D(prior,ages,years,disease,population))
+#'    write.BP(get(result_list[i]),sprintf('%s.xlsx',result_list[i]))
 #'}
-#'BPtable<-BP2D_table(results_list)
-#'write.BPtable(BPtable,filename = 'BPtable.xlsx')
-#'mapply(write.BP,results_list,paste0(results_list,'.xlsx'))
-#'#Credible interval
-#'CI<-Credible_interval(result,n_cluster = 1)
-#'CI_pda<-Credible_interval_pd_ages(result,n_cluster = 1)
-#'CI_pdy<-Credible_interval_pd_years(result,n_cluster = 1)
-#'CI
-#'CI_pda
-#'CI_pdy
+#'tab<-BP2D_table(result_list)
+#'write.BPtable(tab,'result_table.xlsx')
+#'# ---------------------------------------- #
 #'}
 #'@export BP2D
 #'@family Bayesain estimate
 
-
-
-BP2D <- function(prior, input_data = input_data, ages = ages, years = years, Iterations = 2e+05,
-    n_cluster = 1, n_chain = 5, RJC = 0.35, nn = 2, seed = TRUE, set = 1, interval = 100,
-    double = 4) {
+BP2D <- function(prior, ages, years, disease, population, Iterations = 2e+05, n_chain = 5,
+    n_cluster = 1, nn = 2, interval = 100, RJC = 0.35, seed = TRUE, set = 1, double = 4) {
     if ((prior[1] < prior[2]) || (length(prior) != 3)) {
-        stop("The prior is not correct!")
+        stop("'prior' is not correct!")
     } else if (RJC > 0.5 || RJC < 0) {
         stop("'RJC' is not correct!")
     } else if (nn < 1 && (!round(nn) == nn)) {
-        stop("Can not compute in this method!")
+        stop("'nn' is not correct!")
     } else if (n_cluster > detectCores()) {
         n_cluster <- max(detectCores() - 1, 1)
     } else if (!round(double) == double) {
@@ -91,69 +87,24 @@ BP2D <- function(prior, input_data = input_data, ages = ages, years = years, Ite
     } else if (n_chain %in% c(0, 1)) {
         stop("'n_chain' should bigger then one")
     }
+
+    prior <- unlist(prior)
     n0 <- prior[1]
     alpha <- prior[2]
     LL <- max(prior[3], 1)
-    tao11 <- min(ages)
-    tao12 <- max(ages)
-    tao21 <- min(years)
-    tao22 <- max(years)
-    input_data <- as.matrix(input_data)
-    nc_d <- ncol(input_data)/2
-    Ndata <- input_data[, 1:nc_d]
-    Mdata <- input_data[, 1:nc_d + nc_d]
-    disease <- Ndata[tao11:tao12, tao21:tao22 - tao21 + 1]
-    population <- Mdata[tao11:tao12, tao21:tao22 - tao21 + 1]
-    rdm <- disease/population
-    if ((sum(population == 0) > 0) || (!dim(Ndata) == dim(Mdata))) {
-        stop("Please check your data again")
-    }
+    basis <- BPbasis(ages, years, n0)
     disease <- as.matrix(disease)
     population <- as.matrix(population)
-    x <- (ages - tao11)/(tao12 - tao11)
-    y <- (years - tao21)/(tao22 - tao21)
-    lx <- length(x)
-    ly <- length(y)
-    list.basis <- BPbasis(n0, ages, years)
-    Bernstein <- function(a) {
-        n <- sqrt(length(a))
-        aa <- matrix(a, nrow = n^2, ncol = lx * ly)
-        temp <- colSums(aa * list.basis[[n - 1]])
-        Mean <- mean(temp)
-        Max <- max(temp)
-        return(list(Max = Max, Mean = Mean))
-    }
-    Pvalue <- function(a) {
-        n <- sqrt(length(a))
-        aa <- matrix(a, nrow = n^2, ncol = lx * ly)
-        M <- matrix(colSums(aa * list.basis[[n - 1]]), lx, ly)
-        M1 <- matrix(sapply(M * population, function(x) rpois(1, x)), lx, ly)/population
-        EZR1 <- max(abs(M1 - M))
-        EZR2 <- abs(mean(M1) - mean(M))
-        ZR1 <- max(abs(M - rdm))
-        ZR2 <- abs(mean(M) - mean(rdm))
-        PMax <- EZR1 > ZR1
-        PMean <- EZR2 > ZR2
-        return(list(Max = PMax, Mean = PMean))
-    }
-    Fhat <- function(a) {
-        n <- sqrt(length(a))
-        aa <- matrix(a, nrow = n^2, ncol = lx * ly)
-        matrix(colSums(aa * list.basis[[n - 1]]), lx, ly)
-    }
-    logLF <- function(a) {
-        n <- sqrt(length(a))
-        aa <- matrix(a, nrow = n^2, ncol = lx * ly)
-        M <- colSums(aa * list.basis[[n - 1]]) * population
-        sum(disease * log(M) - M - lfactorial(disease))
-    }
+    rate <- disease/population
 
-    r1 <- LL * max(rdm[1, ])
-    r2 <- LL * max(rdm[nrow(rdm), ])
-    c1 <- LL * max(rdm[, 1])
-    c2 <- LL * max(rdm[, ncol(rdm)])
-    ld <- c(r1, r2, c1, c2)
-    M2 <- LL * max(rdm)
+    lx <- length(ages)
+    ly <- length(years)
+    l1 <- LL * max(rate[1, ], na.rm = T)
+    l2 <- LL * max(rate[nrow(rate), ], na.rm = T)
+    l3 <- LL * max(rate[, 1], na.rm = T)
+    l4 <- LL * max(rate[, ncol(rate)], na.rm = T)
+    ld <- c(l1, l2, l3, l4)
+    M2 <- LL * max(rate, na.rm = T)
     M1 <- 0
 
     if (seed == TRUE) {
@@ -161,35 +112,48 @@ BP2D <- function(prior, input_data = input_data, ages = ages, years = years, Ite
     } else {
         rm(set)
     }
+
     P1 <- sum(dpois(0:nn, alpha))
     Pn <- sapply((nn + 1):(n0 - 1), function(x) dpois(x, alpha))
     P <- c(P1, Pn, 1 - sum(Pn) - P1)
     n1 <- sample(nn:n0, n_chain, P, replace = T)
     P <- c(rep(0, nn - 1), P, 0)
-    initial <- function(n1) {
-        h1 <- c(runif(n1 + 1, M1, r1))
-        h2 <- matrix(c(runif(n1 - 1, M1, c1), runif((n1 - 1)^2, M1, M2), runif(n1 -
-            1, M1, c2)), nrow = n1 - 1, ncol = n1 + 1)
-        h3 <- c(runif(n1 + 1, M1, r2))
-        Rprm <- rbind(h1, h2, h3)
-        return(Rprm)
+
+    initialvalue <- lapply(n1, function(n) {
+        h1 <- runif(n + 1, M1, l1)
+        h2 <- matrix(c(runif(n - 1, M1, l3), runif((n - 1)^2, M1, M2), runif(n - 1, M1,
+            l4)), nrow = n - 1, ncol = n + 1)
+        h3 <- runif(n + 1, M1, l2)
+        ret <- rbind(h1, h2, h3)
+        return(ret)
+    })
+
+    BP <- function(a) {
+        a <- as.vector(a)
+        n <- sqrt(length(a))
+        est <- colSums(a * basis[[n - 1]])
+        return(matrix(est, lx, ly))
     }
-    initialvalue <- lapply(n1, initial)
-    MHRJ_Agorithm <- function(initialvalue, kk = 0.5) {
-        gg <- kk * Iterations
-        store <- list()
+
+    logLF <- function(a) {
+        M <- BP(a) * population
+        sum(disease * log(M) - M, na.rm = T)
+    }
+
+    MHRJ_Algorithm <- function(initialvalue, kk = 0.5) {
+        iter <- kk * Iterations
+        store_coef <- list()
         storeF <- 0
         chain <- c()
         maxchain <- c()
         Pmax <- c()
         Pmean <- c()
-        n1 <- sqrt(length(unlist(initialvalue))) - 1
-        Rprm <- matrix(unlist(initialvalue), n1 + 1, n1 + 1)
-        R <- as.vector(Rprm)
-        si <- (ifelse(kk == 0.5, 1, kk * Iterations + 1))
-        ei <- (2 * kk * Iterations)
-        for (i in si:ei) {
-            RJP <- c(min(1, P[n1 - 1]/P[n1]), min(1, P[n1 + 1]/P[n1]))
+        nx <- nrow(initialvalue) - 1
+        X <- initialvalue
+        start <- (ifelse(kk == 0.5, 1, kk * Iterations + 1))
+        end <- (2 * kk * Iterations)
+        for (i in start:end) {
+            RJP <- c(min(1, P[nx - 1]/P[nx]), min(1, P[nx + 1]/P[nx]))
             RJP <- c(RJC * RJP[1], 1 - sum(RJC * RJP), RJC * RJP[2])
             if (RJP[1] == 0) {
                 H <- sample(c(1, 2), 1, prob = RJP[2:3])
@@ -198,115 +162,103 @@ BP2D <- function(prior, input_data = input_data, ages = ages, years = years, Ite
             } else {
                 H <- sample(c(0, 1, 2), 1, prob = RJP)
             }
-            Sprm <- Rprm
+            Y <- X
             if (H == 0) {
-                n2 <- n1 - 1
-                delete <- sample(0:n1 + 1, 2, replace = T)
-                Sprm <- Rprm[-delete[1], -delete[2]]
-                S <- as.vector(Sprm)
-                Jcb <- sum(log(ld - M1)) - log(M2 - M1) * (2 * n2 - 3)
-                rio <- logLF(S) - logLF(R) + log(P[n2]/P[n1]) - Jcb
+                ny <- nx - 1
+                delete <- sample(0:nx + 1, 2, replace = T)
+                Y <- X[-delete[1], -delete[2]]
+                Jcb <- sum(log(ld - M1)) - log(M2 - M1) * (2 * ny - 3)
+                rio <- logLF(Y) - logLF(X) + log(P[ny]/P[nx]) - Jcb
             } else if (H == 2) {
-                n2 <- n1 + 1
-                Sprm <- Rprm
-                add <- sample(0:n1, 2, replace = T)
-                m1 <- Rprm[1:add[1], ]
-                m2 <- Rprm[add[1]:nrow(Rprm), ]
-                m <- rbind(m1, m2)
-                m1 <- m[, 1:add[2]]
-                m2 <- m[, add[2]:ncol(m)]
-                Sprm <- cbind(m1, m2)
-                ls <- sqrt(length(Sprm)) - 2
-                ww <- c(runif(1, M1, r1), runif(ls, M1, M2), runif(1, M1, r2))
-                vv <- c(runif(1, M1, c1), runif(ls, M1, M2), runif(1, M1, c2))
-                Sprm[add[1] + 1, ] <- ww
-                Sprm[, add[2] + 1] <- vv
-                S <- as.vector(Sprm)
-                Jcb <- sum(log(ld - M1)) + log(M2 - M1) * (2 * n2 - 1)
-                rio <- logLF(S) - logLF(R) - log(P[n2]/P[n1]) + Jcb
+                ny <- nx + 1
+                Y <- matrix(0, ny + 1, ny + 1)
+                s <- sample(2:ny, 2, replace = T)
+                Y[-s[1], -s[2]] <- X
+                Y[s[1], ] <- c(runif(1, M1, l1), runif(nx, M1, M2), runif(1, M1, l2))
+                Y[, s[2]] <- c(runif(1, M1, l3), runif(nx, M1, M2), runif(1, M1, l4))
+                Jcb <- sum(log(ld - M1)) + log(M2 - M1) * (2 * ny - 1)
+                rio <- logLF(Y) - logLF(X) - log(P[ny]/P[nx]) + Jcb
             } else {
-                Sprm <- Rprm
-                n2 <- n1
-                if (n2 == 1) {
-                  stay <- sample(1:4, 1)
+                Y <- X
+                ny <- nx
+                n <- nrow(Y)
+                if (ny == 1) {
+                  state <- sample(1:4, 1)
                 } else {
-                  stay <- sample(1:9, 1)
+                  state <- sample(1:9, 1)
                 }
-                if (stay == 1) {
-                  Sprm[1, 1] <- runif(1, M1, r1)
-                } else if (stay == 2) {
-                  Sprm[1, ncol(Sprm)] <- runif(1, M1, r1)
-                } else if (stay == 3) {
-                  Sprm[nrow(Sprm), 1] <- runif(1, M1, r2)
-                } else if (stay == 4) {
-                  Sprm[nrow(Sprm), ncol(Sprm)] <- runif(1, M1, r2)
-                } else if (stay == 5) {
-                  Sprm[1, 2:(ncol(Sprm) - 1)] <- runif(ncol(Sprm) - 2, M1, r1)
-                } else if (stay == 6) {
-                  Sprm[nrow(Sprm), 2:(ncol(Sprm) - 1)] <- runif(ncol(Sprm) - 2,
-                    M1, r2)
-                } else if (stay == 7) {
-                  Sprm[2:(nrow(Sprm) - 1), 1] <- runif(ncol(Sprm) - 2, M1, c1)
-                } else if (stay == 8) {
-                  Sprm[2:(nrow(Sprm) - 1), ncol(Sprm)] <- runif(ncol(Sprm) - 2,
-                    M1, c2)
+                if (state == 1) {
+                  Y[1, 1] <- runif(1, M1, l1)
+                } else if (state == 2) {
+                  Y[1, n] <- runif(1, M1, l1)
+                } else if (state == 3) {
+                  Y[n, 1] <- runif(1, M1, l2)
+                } else if (state == 4) {
+                  Y[n, n] <- runif(1, M1, l2)
+                } else if (state == 5) {
+                  Y[1, 2:(n - 1)] <- runif(n - 2, M1, l1)
+                } else if (state == 6) {
+                  Y[n, 2:(n - 1)] <- runif(n - 2, M1, l2)
+                } else if (state == 7) {
+                  Y[2:(n - 1), 1] <- runif(n - 2, M1, l3)
+                } else if (state == 8) {
+                  Y[2:(n - 1), n] <- runif(n - 2, M1, l4)
                 } else {
-                  ch <- sample(2:n1, 1)
-                  Sprm[ch, 2:(nrow(Sprm) - 1)] <- runif(ncol(Sprm) - 2, M1, M2)
+                  ch <- sample(2:ny, 1)
+                  Y[ch, 2:(n - 1)] <- runif(n - 2, M1, M2)
                 }
-                S <- as.vector(Sprm)
-                rio <- logLF(S) - logLF(R)
+                rio <- logLF(Y) - logLF(X)
             }
             if (rio > 0) {
-                nnext <- n2
-                Xnext <- Sprm
+                nnext <- ny
+                Xnext <- Y
             } else {
                 if (log(runif(1)) < rio) {
-                  nnext <- n2
-                  Xnext <- Sprm
+                  nnext <- ny
+                  Xnext <- Y
                 } else {
-                  nnext <- n1
-                  Xnext <- Rprm
+                  nnext <- nx
+                  Xnext <- X
                 }
             }
-            Rprm <- Xnext
-            R <- as.vector(Xnext)
-            n1 <- nnext
-            condition <- ifelse(interval == 1, i > gg, i > gg && (i%%gg%%interval ==
-                1))
+            X <- Xnext
+            nx <- nnext
+            condition <- ifelse(interval == 1, i > iter,
+                                i > iter && (i%%iter%%interval == 1))
             if (condition) {
-                chain[length(chain) + 1] <- Bernstein(Xnext)$Mean
-                maxchain[length(maxchain) + 1] <- Bernstein(Xnext)$Max
-                tmp <- Pvalue(Xnext)
-                Pmax[length(Pmax) + 1] <- tmp$Max
-                Pmean[length(Pmean) + 1] <- tmp$Mean
-                store[[length(store) + 1]] <- Xnext
-                storeF <- storeF + Fhat(Xnext)
-                rm(tmp)
+                est <- BP(Xnext)
+                chain[length(chain) + 1] <- mean(est)
+                maxchain[length(maxchain) + 1] <- max(est)
+                Rp <- rpois(lx * ly, est * population)/population
+                EZR1 <- max(abs(est - Rp), na.rm = T)
+                EZR2 <- abs(mean(est, na.rm = T) - mean(Rp, na.rm = T))
+                ZR1 <- max(abs(est - rate), na.rm = T)
+                ZR2 <- abs(mean(est, na.rm = T) - mean(rate, na.rm = T))
+                Pmax[length(Pmax) + 1] <- EZR1 > ZR1
+                Pmean[length(Pmean) + 1] <- EZR2 > ZR2
+                store_coef[[length(store_coef) + 1]] <- Xnext
+                storeF <- storeF + est
             }
         }
-        return(list(chain = chain, store = store, storeF = storeF/gg * interval,
-            maxchain = maxchain, Pmax = Pmax, Pmean = Pmean))
+        return(list(chain = chain, maxchain = maxchain, store_coef = store_coef, storeF = storeF/iter *
+            interval, Pmax = Pmax, Pmean = Pmean))
     }
-    norm_fun <- function(x, y) {
-        c(L1norm = mean(abs(x - y)), supnorm = max(abs(x - y)))
-    }
+
     kk <- 0.5
     out.put <- list()
     cl <- makeCluster(n_cluster)
     t1 <- Sys.time()
-    prior <- paste0("n0=", prior[1], ",alpha=", prior[2], ",max=", prior[3])
-    message("Prior: ", prior)
+    pr <- paste0("n0=", prior[1], ",alpha=", prior[2], ",max=", prior[3])
+    message("Prior: ", pr)
     repeat {
         result <- parLapply(cl, 1:n_chain, function(i) {
             if (seed == T) {
                 set.seed(set)
-                a <- runif(n_chain)
+                a <- sample(-10000:10000,n_chain)
                 set.seed(a[i])
             }
-            MHRJ_Agorithm(initialvalue[[i]], kk = kk)
+            MHRJ_Algorithm(initialvalue[[i]], kk = kk)
         })
-        gc()
         chain <- rbind(sapply(1:n_chain, function(i) result[[i]]$chain))
         maxchain <- rbind(sapply(1:n_chain, function(i) result[[i]]$maxchain))
         R.hat <- Rhat(chain, burn.in = 0)
@@ -318,16 +270,16 @@ BP2D <- function(prior, input_data = input_data, ages = ages, years = years, Ite
         Pn <- rbind(sapply(1:n_chain, function(i) result[[i]]$Pmean))
         Fhat.mean <- mean(Fprime) * 10^5
         Fhat.max <- max(Fprime) * 10^5
-        norm <- norm_fun(rdm, Fprime) * 10^5
+        L1norm <- mean(abs(rate - Fprime), na.rm = T) * 10^5
+        supnorm <- max(abs(rate - Fprime), na.rm = T) * 10^5
         Pvalue.mean <- mean(Pn)
         Pvalue.max <- mean(Px)
         t2 <- Sys.time()
-        out.put[[length(out.put) + 1]] <- cbind(L1_norm = norm[1], sup_norm = norm[2],
-            Fhat.mean, Fhat.max, R.hat, Iterations = Iterations * kk * 2, Pvalue.mean,
-            Pvalue.max, time.mins = difftime(t2, t1, units = "mins"))
+        out.put[[length(out.put) + 1]] <- cbind(L1_norm = L1norm, sup_norm = supnorm, Fhat.mean,
+            Fhat.max, R.hat, Iterations = Iterations * kk * 2, Pvalue.mean, Pvalue.max,
+            time.mins = difftime(t2, t1, units = "mins"))
         message("Iterations: ", Iterations * kk * 2)
-        message("Time: ", round(difftime(t2, t1, units = "mins"), digits = 3),
-            " mins")
+        message("Time: ", round(difftime(t2, t1, units = "mins"), digits = 3), " mins")
         message("R.hat: ", round(R.hat, digits = 6))
         if (R.hat < 1.1) {
             message("Markov chains is convergence.\n")
@@ -339,21 +291,21 @@ BP2D <- function(prior, input_data = input_data, ages = ages, years = years, Ite
             message("Markov chains is not convergence.")
             message("Double the number of iterations.")
             kk <- kk * 2
-            initialvalue <- lapply(1:n_chain, function(i) tail(result[[i]]$store,
-                1))
+            initialvalue <- sapply(1:n_chain, function(i)
+                tail(result[[i]]$store_coef, 1))
         }
     }
     stopCluster(cl)
-    storeparameter <- lapply(1:n_chain, function(i) result[[i]]$store)
-    names(storeparameter) <- paste0("chain_", 1:n_chain)
-    names(storeparameter) <- colnames(chain) <- colnames(maxchain) <- paste0("chain_",
-        1:n_chain)
+    storeparameter <- lapply(1:n_chain, function(i) result[[i]]$store_coef)
+    names(storeparameter) <- colnames(chain) <- colnames(maxchain) <-
+        paste0("chain_", 1:n_chain)
     output <- do.call(rbind, out.put)
-    rownames(output) <- rep(prior, dim(output)[1])
+    rownames(output) <- rep(pr, dim(output)[1])
     row.names(Fprime) <- ages
     colnames(Fprime) <- years
-    r <- list(Fhat = Fprime, chain = chain, maxchain = maxchain, store_coefficients = storeparameter,
-        output = output)
+    r <- list(Fhat = Fprime, chain = chain, maxchain = maxchain,
+              store_coefficients = storeparameter, output = output)
     class(r) <- "BP2D_result"
     return(r)
 }
+

@@ -4,35 +4,50 @@
 \alias{BP2D}
 \title{Bayesian estimation using two dimensions Bernstein polynomial}
 \usage{
-BP2D(prior, input_data = input_data, ages = ages, years = years,
-  Iterations = 2e+05, n_cluster = 1, n_chain = 5, RJC = 0.35,
-  nn = 2, seed = TRUE, set = 1, interval = 100, double = 4)
+BP2D(
+  prior,
+  ages,
+  years,
+  disease,
+  population,
+  Iterations = 2e+05,
+  n_chain = 5,
+  n_cluster = 1,
+  nn = 2,
+  interval = 100,
+  RJC = 0.35,
+  seed = TRUE,
+  set = 1,
+  double = 4
+)
 }
 \arguments{
 \item{prior}{prior=(n0,alpha,L) where alpha is a Poisson parameter,n0 is upper bound of alpha
 L can be every number which is bigger than one.}
 
-\item{input_data}{It contain disease and population(ex: simulated_data_1).}
-
 \item{ages}{Range of ages.}
 
 \item{years}{Range of years.}
 
-\item{Iterations}{Iterations of chain.}
+\item{disease}{Disease matrix.}
 
-\item{n_cluster}{This parameter means number of cores, five cores is recommended.(default: n_cluster=1).}
+\item{population}{Population matrix.}
+
+\item{Iterations}{Iterations of chain.}
 
 \item{n_chain}{Number of Markov chain.}
 
-\item{RJC}{Control parameter for transfer dimension.}
+\item{n_cluster}{This parameter means number of cores, five cores is recommended.(default: n_cluster=1).}
 
 \item{nn}{The parameter nn is lower bound of alpha.}
+
+\item{interval}{Each hundreds save one coefficient.}
+
+\item{RJC}{Control parameter for transfer dimension.}
 
 \item{seed}{Set seed yes or not.}
 
 \item{set}{Choose seed.(defaults:set=1)}
-
-\item{interval}{Each hundreds save one coefficient.}
 
 \item{double}{If R.hat >1.1 then double the iterations of times.}
 }
@@ -49,56 +64,55 @@ This function runs Metropolis-Hasting algorithm which is given setting prior and
 }
 \examples{
 \donttest{
+# ---------------------------------------- #
 library(BayesBP)
-#simulated_data_1,simulated_data_2
-#Ages 1~85,years 1988~2007
-#Data are zero from 0 to 34
-#Given one prior and simulated_data_1
-data('simulated_data_1')
 ages<-35:85
 years<-1988:2007
 prior<-c(10,5,2)
-result<-BP2D(prior,simulated_data_1,ages,years,n_cluster=1)
-result$Fhat
-result$chain
-result$maxchain
-result$output
-result$store_coefficients$chain_1
-matplot(result$chain,type='l',main='Posterior mean trace plot')
-matplot(result$maxchain,type='l',main='Posterior max trace plot')
-BP2D_coef(result)
-write.BP(result,filename = 'result.xlsx')
-write.BP('result',filename = 'result.xlsx')
-
-#Given four prior and simulated_data_2
-data('simulated_data_2')
-n0<-c(10,20,10,20)
-alpha<-c(5,10,5,10)
-L<-c(2,2,4,4)
-prior<-cbind(n0,alpha,L)
+data(simulated_data_1)
+disease<-simulated_data_1$disease
+population<-simulated_data_1$population
+result<-BP2D(prior,ages,years,disease,population)
+# ---------------------------------------- #
+# Bernstein basis
+basis<-BPbasis(ages,years,10)
+pdbasis1<-PD_BPbasis(ages,years,10,by = 1)
+pdbasis2<-PD_BPbasis(ages,years,10,by = 2)
+# Bernstein polynomial
+coef<-result$store_coefficients$chain_1[[1]]
+BPFhat(coef,ages,years,basis)
+PD_BPFhat(coef,ages,years,pdbasis1,by = 1)
+PD_BPFhat(coef,ages,years,pdbasis2,by = 2)
+# Credible interval
+Credible_interval(result)
+PD_Credible_interval(result,by = 1)
+PD_Credible_interval(result,by = 2)
+# ---------------------------------------- #
+# Given four prior set
 ages<-35:85
 years<-1988:2007
-results_list<-paste0('result_',letters[1:4])
-for(i in 1:4){
- assign(results_list[i],BP2D(prior[i,],simulated_data_2,ages,years,n_cluster=1))
+data(simulated_data_2)
+disease<-simulated_data_2$disease
+population<-simulated_data_2$population
+p<-expand.grid(n0=c(10,20),alpha=c(5,10),LL=c(2,4))
+prior_set<-p[p$n0==p$alpha*2,]
+result_list<-paste0('result',1:nrow(prior_set))
+for (i in seq_len(nrow(prior_set))) {
+   prior<-prior_set[i,]
+   assign(result_list[i],BP2D(prior,ages,years,disease,population))
+   write.BP(get(result_list[i]),sprintf('\%s.xlsx',result_list[i]))
 }
-BPtable<-BP2D_table(results_list)
-write.BPtable(BPtable,filename = 'BPtable.xlsx')
-mapply(write.BP,results_list,paste0(results_list,'.xlsx'))
-#Credible interval
-CI<-Credible_interval(result,n_cluster = 1)
-CI_pda<-Credible_interval_pd_ages(result,n_cluster = 1)
-CI_pdy<-Credible_interval_pd_years(result,n_cluster = 1)
-CI
-CI_pda
-CI_pdy
+tab<-BP2D_table(result_list)
+write.BPtable(tab,'result_table.xlsx')
+# ---------------------------------------- #
 }
 }
 \references{
 Li-Chu Chien,Yuh-Jenn Wu,Chao A. Hsiung,Lu-Hai Wang,I-Shou Chang(2015).Smoothed Lexis Diagrams With Applications to Lung and Breast Cancer Trends in Taiwan,Journal of the American Statistical Association, Taylor & Francis Journals, vol. 110(511), pages 1000-1012, September.
 }
 \seealso{
-Other Bayesain estimate: \code{\link{BP2D_coef}},
-  \code{\link{BP2D_table}}
+Other Bayesain estimate: 
+\code{\link{BP2D_coef}()},
+\code{\link{BP2D_table}()}
 }
 \concept{Bayesain estimate}

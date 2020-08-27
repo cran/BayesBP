@@ -14,7 +14,7 @@ Credible_interval(result, n_cluster = 1, alpha = 0.05)
 \item{alpha}{Level of significance.}
 }
 \value{
-This function return Bayesian credible interval with level of significance.
+Bayesian credible interval with level of significance.
 }
 \description{
 Builing two dimensional Bernstein polynomial credible interval.
@@ -23,7 +23,7 @@ Builing two dimensional Bernstein polynomial credible interval.
 L.H. Chien, T.J. Tseng, C.H. Chen, H.F. Jiang, F.Y. Tsai, T.W. Liu, C.A. Hsiung, I.S. Chang Comparison of annual percentage change in breast cancer incidence rate between Taiwan and the United States-A smoothed Lexis diagram approach.
 }
 \seealso{
-Other Credible interval: \code{\link{Credible_interval_pd_ages}},
-  \code{\link{Credible_interval_pd_years}}
+Other Credible interval: 
+\code{\link{PD_Credible_interval}()}
 }
 \concept{Credible interval}

@@ -1,44 +1,34 @@
 #'Bernstein polynomial basis.
 #'@description This function build two dimensional Bernstein polynomial basis.
-#'@param n0 Upper bound of possion random variable.
-#'@param nn Lower bound of possion random variable.
 #'@param ages  Range of ages.
 #'@param years Range of years.
+#'@param n0 Upper bound of possion random variable.
+#'@param N Lower bound of possion random variable.
 #'@return Bernstein basis.
 #'@examples
-#'ages<-35:85
-#'years<-1988:2007
-#'list.basis<-BPbasis(10,ages,years)
+#'ages <- 35:85
+#'years <- 1988:2007
+#'list.basis <- BPbasis(ages,years,10)
 #'list.basis
 #'@family Bernstein basis
 #'@export BPbasis
 
-
-
-BPbasis <- function(n0, ages, years, nn = 1) {
-    x <- mapping_to_01(ages)
-    y <- mapping_to_01(years)
-    lx <- length(x)
-    ly <- length(y)
-    x1 <- rep(x, ly)
-    y1 <- rep(y, each = lx)
-    list.basis <- list()
-    bin <- function(n, i, x) {
-        choose(n, i) * x^i * (1 - x)^(n - i)
-    }
-    basis <- function(i, j) {
-        bin(n, i, x1[k]) * bin(n, j, y1[k])
-    }
-    for (n in nn:n0) {
-        i <- 0:n
-        j <- 0:n
-        g <- array(0, dim = c(n + 1, n + 1, lx * ly))
-        for (k in 1:(lx * ly)) {
-            g[, , k] <- outer(i, j, basis)
+BPbasis <- function(ages, years, n0, N = 1) {
+    x <- scale_to_01(ages)
+    y <- scale_to_01(years)
+    xy <- expand.grid(x, y)
+    basis_list <- list()
+    for (n in N:n0) {
+        i <- j <- 0:n
+        g <- array(0, dim = c(n + 1, n + 1, nrow(xy)))
+        for (k in seq_len(nrow(xy))) {
+            g[, , k] <- outer(i, j, function(i, j) {
+                bin(n, i, xy[k, 1]) * bin(n, j, xy[k, 2])
+            })
         }
-        parameter <- matrix(as.vector(g), nrow = (n + 1)^2, lx * ly)
-        list.basis[[length(list.basis) + 1]] <- parameter
-        rm(g, parameter)
+        parameter <- matrix(as.vector(g), nrow = (n + 1)^2, ncol = nrow(xy))
+        basis_list[[length(basis_list) + 1]] <- parameter
     }
-    return(list.basis)
+    class(basis_list) <- "BPbasis"
+    return(basis_list)
 }

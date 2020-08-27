@@ -16,7 +16,8 @@ Coefficients table.
 This function will return coefficient and length of each set of coefficeint.
 }
 \seealso{
-Other Bayesain estimate: \code{\link{BP2D_table}},
-  \code{\link{BP2D}}
+Other Bayesain estimate: 
+\code{\link{BP2D_table}()},
+\code{\link{BP2D}()}
 }
 \concept{Bayesain estimate}

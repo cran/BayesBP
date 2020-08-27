@@ -9,17 +9,16 @@
 BP2D_coef <- function(result) {
     if (class(result) == "BP2D_result") {
         len_coef <- list()
-        for (j in 1:length(result$store_coefficient)) {
-            len_coef[[length(len_coef) + 1]] <- sapply(result$store_coefficient[[j]], 
-                length)
+        for (j in seq_len(length(result$store_coefficient))) {
+            len_coef[[j]] <- sapply(result$store_coefficient[[j]], length)
         }
         len_coef <- do.call(cbind, len_coef)
         store_coef <- lapply(result$store_coef, unlist)
         max_len <- max(sapply(store_coef, length))
         store_coef <- sapply(store_coef, function(x) c(x, rep(NA, max_len - length(x))))
         colnames(len_coef) <- colnames(store_coef) <- names(result$store_coefficient)
-        row.names(len_coef) <- 1:nrow(len_coef)
-        row.names(store_coef) <- 1:nrow(store_coef)
+        row.names(len_coef) <- seq_len(nrow(len_coef))
+        row.names(store_coef) <- seq_len(nrow(store_coef))
         return(list(store_coefficient = store_coef, len_coefficient = len_coef))
     } else {
         stop("Please check your input and try again")

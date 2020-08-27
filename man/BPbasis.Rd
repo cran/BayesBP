@@ -4,16 +4,16 @@
 \alias{BPbasis}
 \title{Bernstein polynomial basis.}
 \usage{
-BPbasis(n0, ages, years, nn = 1)
+BPbasis(ages, years, n0, N = 1)
 }
 \arguments{
-\item{n0}{Upper bound of possion random variable.}
-
 \item{ages}{Range of ages.}
 
 \item{years}{Range of years.}
 
-\item{nn}{Lower bound of possion random variable.}
+\item{n0}{Upper bound of possion random variable.}
+
+\item{N}{Lower bound of possion random variable.}
 }
 \value{
 Bernstein basis.
@@ -22,13 +22,13 @@ Bernstein basis.
 This function build two dimensional Bernstein polynomial basis.
 }
 \examples{
-ages<-35:85
-years<-1988:2007
-list.basis<-BPbasis(10,ages,years)
+ages <- 35:85
+years <- 1988:2007
+list.basis <- BPbasis(ages,years,10)
 list.basis
 }
 \seealso{
-Other Bernstein basis: \code{\link{BPbasis_pd_ages}},
-  \code{\link{BPbasis_pd_years}}
+Other Bernstein basis: 
+\code{\link{PD_BPbasis}()}
 }
 \concept{Bernstein basis}

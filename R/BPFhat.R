@@ -1,26 +1,31 @@
-#'Bernstein polynomial
+#'Two dimensional Bernstein polynomial
 #'@description Given Bernstein polynomial coeffients to compute Fhat.
-#'@param coef  Bernstein polynimial coefficients.
+#'@param coef  Bernstein polynomial coefficients.
 #'@param ages  Range of ages.
 #'@param years Range of years.
+#'@param basis Bernstein polynomial basis.
 #'@return This function return outer Bernstein polynomial using coefficients.
 #'@examples
-#'coef<-runif(9)
-#'ages<-35:85
-#'years<-1988:2007
-#'BPFhat(coef,ages,years)
+#'coef <- runif(9)
+#'ages <- 35:85
+#'years <- 1988:2007
+#'list.basis <- BPbasis(ages,years,10)
+#'BPFhat(coef,ages,years,list.basis)
 #'@family outer Bernstein polynomial
 #'@export BPFhat
 
-BPFhat <- function(coef, ages, years) {
+BPFhat <- function(coef, ages, years, basis) {
+    coef <- as.vector(coef)
+    lx <- length(ages)
+    ly <- length(years)
     n <- sqrt(length(coef))
     if (round(n) != n) {
         stop("length(coef) should be square number")
     }
-    a.basis <- BPbasis(n - 1, ages, years, n - 1)
-    aa <- matrix(coef, nrow = n^2, ncol = length(ages) * length(years))
-    m <- matrix(colSums(aa * a.basis[[1]]), length(ages), length(years))
-    colnames(m) <- years
-    row.names(m) <- ages
-    return(m)
+    d <- sapply(basis, dim)
+    chs <- which(d[1, ] == (n * n))
+    est <- colSums(coef * basis[[chs]])
+    return(matrix(est, lx, ly))
 }
+
+

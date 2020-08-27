@@ -2,16 +2,18 @@
 % Please edit documentation in R/BPFhat.R
 \name{BPFhat}
 \alias{BPFhat}
-\title{Bernstein polynomial}
+\title{Two dimensional Bernstein polynomial}
 \usage{
-BPFhat(coef, ages, years)
+BPFhat(coef, ages, years, basis)
 }
 \arguments{
-\item{coef}{Bernstein polynimial coefficients.}
+\item{coef}{Bernstein polynomial coefficients.}
 
 \item{ages}{Range of ages.}
 
 \item{years}{Range of years.}
+
+\item{basis}{Bernstein polynomial basis.}
 }
 \value{
 This function return outer Bernstein polynomial using coefficients.
@@ -20,13 +22,14 @@ This function return outer Bernstein polynomial using coefficients.
 Given Bernstein polynomial coeffients to compute Fhat.
 }
 \examples{
-coef<-runif(9)
-ages<-35:85
-years<-1988:2007
-BPFhat(coef,ages,years)
+coef <- runif(9)
+ages <- 35:85
+years <- 1988:2007
+list.basis <- BPbasis(ages,years,10)
+BPFhat(coef,ages,years,list.basis)
 }
 \seealso{
-Other outer Bernstein polynomial: \code{\link{BPFhat_pd_ages}},
-  \code{\link{BPFhat_pd_years}}
+Other outer Bernstein polynomial: 
+\code{\link{PD_BPFhat}()}
 }
 \concept{outer Bernstein polynomial}

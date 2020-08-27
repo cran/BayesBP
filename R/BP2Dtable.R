@@ -15,8 +15,8 @@ BP2D_table <- function(results_list) {
             for (i in 1:l) {
                 for (j in i:l) {
                   if (i != j) {
-                    T.[[length(T.) + 1]] <- data.frame(paste0("(", i, ",", j, ")"), 
-                      10^5 * max(abs(allFhat[[i]] - allFhat[[j]])))
+                    T.[[length(T.) + 1]] <- data.frame(paste0("(", i, ",", j, ")"), 10^5 * 
+                      max(abs(allFhat[[i]] - allFhat[[j]])))
                   }
                 }
             }
@@ -28,7 +28,7 @@ BP2D_table <- function(results_list) {
             })
             output <- do.call(rbind, output)
             colnames(T.) <- c("set of priors", "T")
-            rownames(T.) <- 1:nrow(T.)
+            rownames(T.) <- seq_len(nrow(T.))
             r <- list(output = output, T. = T.)
             class(r) <- "BPtable"
             return(r)

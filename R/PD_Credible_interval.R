@@ -3,12 +3,13 @@
 #'@param result This is output of BP2D.
 #'@param n_cluster Muticores is remmended.(default:n_cluster=1)
 #'@param alpha     Level of significance.
+#'@param by 1: partial differential by ages; 2: partial differential by years.
 #'@references L.H. Chien, T.J. Tseng, C.H. Chen, H.F. Jiang, F.Y. Tsai, T.W. Liu, C.A. Hsiung, I.S. Chang Comparison of annual percentage change in breast cancer incidence rate between Taiwan and the United States-A smoothed Lexis diagram approach.
 #'@return Bayesian credible interval with level of significance.
 #'@family Credible interval
-#'@export Credible_interval
+#'@export PD_Credible_interval
 #'
-Credible_interval <- function(result, n_cluster = 1, alpha = 0.05) {
+PD_Credible_interval <- function(result, n_cluster = 1, alpha = 0.05, by = 1) {
     if (class(result) != "BP2D_result") {
         stop("'result' is not correct!")
     } else {
@@ -18,11 +19,12 @@ Credible_interval <- function(result, n_cluster = 1, alpha = 0.05) {
         lx <- length(ages)
         ly <- length(years)
         n0 <- max(sqrt(unique(sapply(coef_list, length))))
-        basis <- BPbasis(ages, years, n0)
+        pdbasis <- PD_BPbasis(ages, years, n0)
         LU <- c(alpha/2, 1 - alpha/2)
         cl <- makeCluster(n_cluster)
-        clusterExport(cl, c("BPFhat", "scale_to_01"))
-        ret <- parSapply(cl, coef_list, function(x) BPFhat(x, ages, years, basis))
+        clusterExport(cl, c("PD_BPFhat", "scale_to_01"))
+        ret <- parSapply(cl, coef_list, function(x) PD_BPFhat(x, ages, years, pdbasis, 
+            by))
         ret <- t(parApply(cl, ret, 1, function(x) c(quantile(x, LU), mean(x))))
         stopCluster(cl)
         lowerCI <- matrix(ret[, 1], lx, ly)
@@ -35,3 +37,5 @@ Credible_interval <- function(result, n_cluster = 1, alpha = 0.05) {
         return(ret)
     }
 }
+
+

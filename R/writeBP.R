@@ -35,4 +35,3 @@ write.BP <- function(writedata, filename) {
     saveWorkbook(wb, filename, overwrite = TRUE)
     return(invisible())
 }
-
